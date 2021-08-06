@@ -39,27 +39,42 @@ export function execute(db: Database, statements: Statement[]): Promise<number> 
     console.log('begin');
   });
   return new Promise<number>((resolve, reject) => {
+    let count = 0;
     statements.forEach((item, index) => {
       db.run(item.query, item.args ? item.args : [], (err: any, result: any) => {
         if (err) {
           reject(err);
-        } else if (statements.length - 1 === index) {
-          resolve(statements.length);
+        } else {
+          count = count + 1;
+          if(count === statements.length) {
+            resolve(count);
+          }
         }
       });
     });
   })
     .then((result) => {
-      db.exec('commit', (err: any) => {
-        console.log('commit');
-      });
-      return result;
+      return new Promise<number>((resolve, reject) => {
+        db.exec('commit', (err: any) => {
+          console.log('commit');
+          if(err) {
+            reject(err);
+          } else {
+            resolve(result);
+          }
+        });
+      }).then(() => result).catch(() => 0);
     })
     .catch((e) => {
-      db.exec('rollback', (err: any) => {
-        console.log('rollback');
-      });
-      return 0;
+      return new Promise<number>((resolve, reject) => {
+        db.exec('rollback', (err: any) => {
+          console.log('rollback');
+          if (err) {
+            reject(err);
+          }
+          resolve(0);
+        });
+      }).then(() => 0).catch(e => e);
     });
 }
 export function exec(db: Database, sql: string, args?: any[]): Promise<number> {
