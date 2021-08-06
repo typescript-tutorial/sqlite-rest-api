@@ -85,7 +85,7 @@ export function exec(db: Database, sql: string, args?: any[]): Promise<number> {
         console.log(err);
         return reject(err);
       } else {
-        return resolve(results);
+        return resolve(1);
       }
     });
   });

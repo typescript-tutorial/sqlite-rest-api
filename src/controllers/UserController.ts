@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { User } from 'models/User';
 import { UserService } from '../services/UserService';
 
 export class UserController {
@@ -56,12 +57,8 @@ export class UserController {
     if (!id || id.length === 0) {
       return res.status(400).send('Id cannot be empty');
     }
-    const user = req.body;
-    if (!user.id) {
-      user.id = id;
-    } else if (id !== user.id) {
-      return res.status(400).send('Id not match');
-    }
+    const user: User = req.body;
+    user.userId = Number(id);
     this.userService
       .update(user)
       .then((result) => res.status(200).json(result))
