@@ -1,10 +1,10 @@
+import { json } from 'body-parser';
 import dotenv from 'dotenv';
 import express from 'express';
 import http from 'http';
-import { json } from 'body-parser';
+import sqlite3 from 'sqlite3';
 import { createContext } from './init';
 import { route } from './route';
-import sqlite3, { Database } from 'sqlite3';
 dotenv.config();
 
 const app = express();
@@ -12,9 +12,9 @@ const app = express();
 const port = process.env.PORT;
 
 const DBSOURCE = './src/services/sqlite/database.db';
-let db = new (sqlite3.verbose().Database)(DBSOURCE);
-db.run(`CREATE TABLE IF NOT EXISTS users(
-  userId INTEGER PRIMARY KEY,
+const db = new (sqlite3.verbose().Database)(DBSOURCE);
+db.run(`create table if not exists users(
+  userId integer primary key,
   name text,
   email text
 )`);

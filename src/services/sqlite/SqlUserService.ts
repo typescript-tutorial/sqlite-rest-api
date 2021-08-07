@@ -1,27 +1,28 @@
+import { Database } from 'sqlite3';
 import { User } from '../../models/User';
-import { Database, Statement } from 'sqlite3';
-import { query, queryOne, exec, execute } from './sqlite';
+import { exec, execBatch, query, queryOne } from './sqlite';
+
 export class SqlUserService {
   constructor(private db: Database) {}
   all(): Promise<User[]> {
-    return query<User>(this.db, 'SELECT * FROM users');
+    return query<User>(this.db, 'select * from users');
   }
   load(id: string): Promise<User> {
-    return queryOne(this.db, 'SELECT * FROM users WHERE userId = $1', [id]);
+    return queryOne(this.db, 'select * from users where userId = $1', [id]);
   }
   insert(user: User): Promise<number> {
-    return exec(this.db, `INSERT INTO users (userId, name, email) VALUES ($1, $2, $3)`, [user.userId, user.name, user.email]);
+    return exec(this.db, `insert into users (userId, name, email) values ($1, $2, $3)`, [user.userId, user.name, user.email]);
   }
   insertMany(users: User[]): Promise<number> {
-    const statements = users.map((item) => {
-      return { query: `INSERT INTO users (userId, name, email) VALUES ($1, $2, $3)`, args: [item.userId, item.name, item.email] };
+    const statements = users.map(stmt => {
+      return { query: `insert into users (userId, name, email) values ($1, $2, $3)`, args: [stmt.userId, stmt.name, stmt.email] };
     });
-    return execute(this.db, statements);
+    return execBatch(this.db, statements);
   }
   update(user: User): Promise<number> {
-    return exec(this.db, `UPDATE users SET name=$1, email=$2 WHERE userId = $3`, [user.name, user.email, user.userId]);
+    return exec(this.db, `update users set name=$1, email=$2 where userId = $3`, [user.name, user.email, user.userId]);
   }
   delete(id: string): Promise<number> {
-    return exec(this.db, `DELETE FROM users WHERE userId = $1`, [id]);
+    return exec(this.db, `delete from users where userId = $1`, [id]);
   }
 }
