@@ -46,7 +46,7 @@ export function execBatch(db: Database, statements: Statement[]): Promise<number
     return new Promise<number>((resolve, reject) => {
       let c = 0;
       statements.forEach((item, index) => {
-        db.run(item.query, item.args ? toArray(item.args) : [], (err: any, result: any) => {
+        db.run(item.query, toArray(item.args), (err: any, result: any) => {
           if (err) {
             reject(err);
           } else {
@@ -69,11 +69,10 @@ export function execBatch(db: Database, statements: Statement[]): Promise<number
   });
 }
 export function exec(db: Database, sql: string, args?: any[]): Promise<number> {
-  const p = args ? args : [];
+  const p = args ? toArray(args) : [];
   return new Promise<number>((resolve, reject) => {
     return db.run(sql, p, (err: any, results: any) => {
       if (err) {
-        console.log(err);
         return reject(err);
       } else {
         return resolve(1);
@@ -82,7 +81,7 @@ export function exec(db: Database, sql: string, args?: any[]): Promise<number> {
   });
 }
 export function query<T>(db: Database, sql: string, args?: any[], m?: StringMap, bools?: Attribute[]): Promise<T[]> {
-  const p = args ? toArray(args) : [];
+  const p = args ? args : [];
   return new Promise<T[]>((resolve, reject) => {
     return db.all(sql, p, (err: any, results: T[]) => {
       if (err) {
@@ -94,8 +93,9 @@ export function query<T>(db: Database, sql: string, args?: any[], m?: StringMap,
   });
 }
 export function queryOne<T>(db: Database, sql: string, args?: any[], m?: StringMap, bools?: Attribute[]): Promise<T> {
+  const p = args ? args : [];
   return new Promise<T>((resolve, reject) => {
-    return db.get(sql, args, (err: any, result: any) => {
+    return db.get(sql, p, (err: any, result: any) => {
       if (err) {
         return reject(err);
       } else {
@@ -116,6 +116,30 @@ export function executeScalar<T>(db: Database, sql: string, args?: any[]): Promi
 }
 export function count(db: Database, sql: string, args?: any[]): Promise<number> {
   return executeScalar<number>(db, sql, args);
+}
+export function save<T>(db: Database|((sql: string, args?: any[]) => Promise<number>), obj: T, table: string, attrs: Attributes, buildParam?: (i: number) => string, i?: number): Promise<number> {
+  const stm = buildToSave(obj, table, attrs, buildParam, i);
+  if (!stm) {
+    return Promise.resolve(0);
+  } else {
+    if (typeof db === 'function') {
+      return db(stm.query, stm.args);
+    } else {
+      return exec(db, stm.query, stm.args);
+    }
+  }
+}
+export function saveBatch<T>(db: Database|((statements: Statement[]) => Promise<number>), objs: T[], table: string, attrs: Attributes, buildParam?: (i: number) => string): Promise<number> {
+  const stmts = buildToSaveBatch(objs, table, attrs, buildParam);
+  if (!stmts || stmts.length === 0) {
+    return Promise.resolve(0);
+  } else {
+    if (typeof db === 'function') {
+      return db(stmts);
+    } else {
+      return execBatch(db, stmts);
+    }
+  }
 }
 export function toArray<T>(arr: T[]): T[] {
   if (!arr || arr.length === 0) {

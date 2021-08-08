@@ -60,22 +60,6 @@ export function metadata(attrs: Attributes): Metadata {
   }
   return m;
 }
-export function save<T>(exec: (sql: string, args?: any[]) => Promise<number>, obj: T, table: string, attrs: Attributes, buildParam?: (i: number) => string, i?: number): Promise<number> {
-  const stm = buildToSave(obj, table, attrs, buildParam, i);
-  if (!stm) {
-    return Promise.resolve(0);
-  } else {
-    return exec(stm.query, stm.args);
-  }
-}
-export function saveBatch<T>(exec: (statements: Statement[]) => Promise<number>, objs: T[], table: string, attrs: Attributes, buildParam: (i: number) => string): Promise<number> {
-  const stmts = buildToSaveBatch(objs, table, attrs, buildParam);
-  if (!stmts || stmts.length === 0) {
-    return Promise.resolve(0);
-  } else {
-    return exec(stmts);
-  }
-}
 export function buildToSave<T>(obj: T, table: string, attrs: Attributes, buildParam?: (i: number) => string, i?: number): Statement {
   if (!i) {
     i = 1;

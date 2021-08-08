@@ -1,6 +1,23 @@
 import { Database } from 'sqlite3';
 import { User } from '../../models/User';
-import { exec, execBatch, query, queryOne } from './sqlite';
+import { Model, Statement } from './metadata';
+import { exec, execBatch, query, queryOne, saveBatch } from './sqlite';
+
+export const userModel: Model = {
+  name: 'user',
+  attributes: {
+    userId: {
+      key: true,
+      type: 'integer',
+      match: 'equal'
+    },
+    name: {
+      match: 'contain'
+    },
+    email: {
+    }
+  }
+};
 
 export class SqlUserService {
   constructor(private db: Database) {}
@@ -14,10 +31,16 @@ export class SqlUserService {
     return exec(this.db, `insert into users (userId, name, email) values ($1, $2, $3)`, [user.userId, user.name, user.email]);
   }
   insertMany(users: User[]): Promise<number> {
+    /*
     const statements = users.map(stmt => {
       return { query: `insert into users (userId, name, email) values ($1, $2, $3)`, args: [stmt.userId, stmt.name, stmt.email] };
     });
-    return execBatch(this.db, statements);
+    */
+   const s = `insert into users (userId, name, email) values (8, 'user8', 'user8@gmail.com');insert into users (userId, name, email) values (6, 'user8', 'user8@gmail.com');
+   insert into users (userId, name, email) values (9, 'user9', 'user9@gmail.com');`;
+    const st: Statement = {query: s};
+    const statements = [st];
+    return saveBatch(this.db, users, 'users', userModel.attributes);
   }
   update(user: User): Promise<number> {
     return exec(this.db, `update users set name=$1, email=$2 where userId = $3`, [user.name, user.email, user.userId]);
