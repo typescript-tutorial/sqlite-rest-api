@@ -46,32 +46,70 @@ export function execute(db: Database, sql: string): Promise<void> {
     });
   });
 }
-export function execBatch(db: Database, statements: Statement[]): Promise<number> {
-  return execute(db, 'begin transaction').then(() => {
-    return new Promise<number>((resolve, reject) => {
-      let c = 0;
-      statements.forEach((item, index) => {
-        db.run(item.query, toArray(item.params), (err: any, result: any) => {
-          if (err) {
-            reject(err);
-          } else {
-            c = c + 1;
-            if (c === statements.length) {
-              resolve(c);
+export function execBatch(db: Database, statements: Statement[], firstSuccess?: boolean): Promise<number> {
+  if (!statements || statements.length === 0) {
+    return Promise.resolve(0);
+  } else if (statements.length === 1) {
+    return exec(db, statements[0].query, statements[0].params);
+  }
+  if (firstSuccess) {
+    return execute(db, 'begin transaction').then(() => {
+      return exec(db, statements[0].query, statements[0].params).then(() => {
+        let listStatements = statements.slice(1);
+        return new Promise<number>((resolve, reject) => {
+          let c: number = 1;
+          listStatements.forEach((item, index) => {
+            db.run(item.query, item.params ? item.params : [], (err: any, result: any) => {
+              if (err) {
+                reject(err);
+              } else {
+                c = c + 1;
+                if (c === listStatements.length + 1) {
+                  resolve(c);
+                }
+              }
+            });
+          });
+        }).then(result => {
+            return execute(db, 'commit').then(() => {
+              return result;
+            });
+          }).catch(er0 => {
+            return execute(db, 'rollback').then(() => {
+              throw er0;
+            });
+          });
+      }).catch(() => {
+        return 0;
+      });
+    })
+  } else {
+    return execute(db, 'begin transaction').then(() => {
+      return new Promise<number>((resolve, reject) => {
+        let c: number = 0;
+        statements.forEach(item => {
+          db.run(item.query, item.params ? item.params : [], (err: any, result: any) => {
+            if (err) {
+              reject(err);
+            } else {
+              c = c + 1;
+              if (c === statements.length) {
+                resolve(c);
+              }
             }
-          }
+          });
         });
-      });
-    }).then(result => {
-        return execute(db, 'commit').then(() => {
-          return result;
+      }).then(result => {
+          return execute(db, 'commit').then(() => {
+            return result;
+          });
+        }).catch(er0 => {
+          return execute(db, 'rollback').then(() => {
+            throw er0;
+          });
         });
-      }).catch(er0 => {
-        return execute(db, 'rollback').then(() => {
-          throw er0;
-        });
-      });
-  });
+    });
+  }
 }
 export function exec(db: Database, sql: string, args?: any[]): Promise<number> {
   const p = args ? toArray(args) : [];
