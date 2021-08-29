@@ -19,8 +19,8 @@ export class PoolManager implements Manager {
   exec(sql: string, args?: any[]): Promise<number> {
     return exec(this.db, sql, args);
   }
-  execBatch(statements: Statement[]): Promise<number> {
-    return execBatch(this.db, statements);
+  execBatch(statements: Statement[], firstSuccess?: boolean): Promise<number> {
+    return execBatch(this.db, statements, firstSuccess);
   }
   query<T>(sql: string, args?: any[], m?: StringMap, fields?: Attribute[]): Promise<T[]> {
     return query(this.db, sql, args, m, fields);
@@ -54,17 +54,17 @@ export function execBatch(db: Database, statements: Statement[], firstSuccess?: 
   }
   if (firstSuccess) {
     return execute(db, 'begin transaction').then(() => {
-      return exec(db, statements[0].query, statements[0].params).then(() => {
-        let listStatements = statements.slice(1);
+      return exec(db, statements[0].query, toArray(statements[0].params)).then(() => {
+        const sub = statements.slice(1);
         return new Promise<number>((resolve, reject) => {
-          let c: number = 1;
-          listStatements.forEach((item, index) => {
-            db.run(item.query, item.params ? item.params : [], (err: any, result: any) => {
+          let c = 1;
+          sub.forEach((item, index) => {
+            db.run(item.query, toArray(item.params), (err: any, result: any) => {
               if (err) {
                 reject(err);
               } else {
                 c = c + 1;
-                if (c === listStatements.length + 1) {
+                if (c === sub.length + 1) {
                   resolve(c);
                 }
               }
@@ -75,6 +75,7 @@ export function execBatch(db: Database, statements: Statement[], firstSuccess?: 
               return result;
             });
           }).catch(er0 => {
+            buildError(er0);
             return execute(db, 'rollback').then(() => {
               throw er0;
             });
@@ -82,13 +83,13 @@ export function execBatch(db: Database, statements: Statement[], firstSuccess?: 
       }).catch(() => {
         return 0;
       });
-    })
+    });
   } else {
     return execute(db, 'begin transaction').then(() => {
       return new Promise<number>((resolve, reject) => {
-        let c: number = 0;
+        let c = 0;
         statements.forEach(item => {
-          db.run(item.query, item.params ? item.params : [], (err: any, result: any) => {
+          db.run(item.query, toArray(item.params), (err: any, result: any) => {
             if (err) {
               reject(err);
             } else {
@@ -111,11 +112,18 @@ export function execBatch(db: Database, statements: Statement[], firstSuccess?: 
     });
   }
 }
+function buildError(err: any): any {
+  if (err.errno === 19 && err.code === 'SQLITE_CONSTRAINT') {
+    err.error = 'duplicate';
+  }
+  return err;
+}
 export function exec(db: Database, sql: string, args?: any[]): Promise<number> {
-  const p = args ? toArray(args) : [];
+  const p = toArray(args);
   return new Promise<number>((resolve, reject) => {
     return db.run(sql, p, (err: any, results: any) => {
       if (err) {
+        buildError(err);
         return reject(err);
       } else {
         return resolve(1);
@@ -124,7 +132,7 @@ export function exec(db: Database, sql: string, args?: any[]): Promise<number> {
   });
 }
 export function query<T>(db: Database, sql: string, args?: any[], m?: StringMap, bools?: Attribute[]): Promise<T[]> {
-  const p = args ? toArray(args) : [];
+  const p = toArray(args);
   return new Promise<T[]>((resolve, reject) => {
     return db.all(sql, p, (err: any, results: T[]) => {
       if (err) {
@@ -136,7 +144,7 @@ export function query<T>(db: Database, sql: string, args?: any[], m?: StringMap,
   });
 }
 export function queryOne<T>(db: Database, sql: string, args?: any[], m?: StringMap, bools?: Attribute[]): Promise<T> {
-  const p = args ? toArray(args) : [];
+  const p = toArray(args);
   return new Promise<T>((resolve, reject) => {
     return db.get(sql, p, (err: any, result: any) => {
       if (err) {
@@ -191,10 +199,8 @@ export function toArray(arr: any[]): any[] {
   const p: any[] = [];
   const l = arr.length;
   for (let i = 0; i < l; i++) {
-    if (arr[i] === undefined) {
+    if (arr[i] === undefined || arr[i] == null) {
       p.push(null);
-    } else if (arr[i] == null) {
-      p.push(arr[i]);
     } else {
       if (typeof arr[i] === 'object') {
         if (arr[i] instanceof Date) {
@@ -469,7 +475,7 @@ export interface AnyMap {
   [key: string]: any;
 }
 // tslint:disable-next-line:max-classes-per-file
-export class PostgreSQLChecker {
+export class SQLiteChecker {
   constructor(private db: Database, private service?: string, private timeout?: number) {
     if (!this.timeout) {
       this.timeout = 4200;
@@ -484,7 +490,7 @@ export class PostgreSQLChecker {
   check(): Promise<AnyMap> {
     const obj = {} as AnyMap;
     const promise = new Promise<any>((resolve, reject) => {
-      this.db.get('select date();', (err, result) => {
+      this.db.get('select date()', (err, result) => {
         if (err) {
           return reject(err);
         } else {
