@@ -11,7 +11,7 @@ const app = express();
 
 const port = process.env.PORT;
 
-const DBSOURCE = './src/services/sqlite/database.db';
+const DBSOURCE = './db/database.db';
 const db = new (sqlite3.verbose().Database)(DBSOURCE);
 db.run(`create table if not exists users(
   userId integer primary key,
