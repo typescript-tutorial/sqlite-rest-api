@@ -1,7 +1,7 @@
 import { Database } from 'sqlite3';
-import { User } from '../../models/User';
-import { Model, Statement } from './metadata';
-import { exec, execBatch, query, queryOne, saveBatch } from './sqlite';
+import { User } from '../models/User';
+import { Model } from '../sqlite/metadata';
+import { exec, execBatch, query, queryOne, saveBatch } from '../sqlite/sqlite';
 
 export const userModel: Model = {
   name: 'user',
